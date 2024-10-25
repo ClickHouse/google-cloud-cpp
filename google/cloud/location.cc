@@ -15,7 +15,7 @@
 #include "google/cloud/location.h"
 #include "google/cloud/internal/make_status.h"
 #include <ostream>
-#include <regex>
+#include "re2/re2.h"
 
 namespace google {
 namespace cloud {
@@ -42,13 +42,14 @@ std::ostream& operator<<(std::ostream& os, Location const& in) {
 }
 
 StatusOr<Location> MakeLocation(std::string const& full_name) {
-  std::regex re("projects/([^/]+)/locations/([^/]+)");
-  std::smatch matches;
-  if (!std::regex_match(full_name, matches, re)) {
+  re2::RE2 re("projects/([^/]+)/locations/([^/]+)");
+  std::string projects;
+  std::string locations;
+  if (!re2::RE2::FullMatch(full_name, re, &projects, &locations)) {
     return internal::InvalidArgumentError("Improperly formatted Location: " +
                                           full_name);
   }
-  return Location(Project(std::move(matches[1])), std::move(matches[2]));
+  return Location(Project(std::move(projects)), std::move(locations));
 }
 
 GOOGLE_CLOUD_CPP_INLINE_NAMESPACE_END

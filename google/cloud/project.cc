@@ -15,7 +15,6 @@
 #include "google/cloud/project.h"
 #include "google/cloud/internal/make_status.h"
 #include <ostream>
-#include <regex>
 
 namespace google {
 namespace cloud {
@@ -35,7 +34,12 @@ std::ostream& operator<<(std::ostream& os, Project const& p) {
   return os << p.FullName();
 }
 
+/// No more std::regex, see https://github.com/ClickHouse/llvm-project/pull/38
+/// - luckily, nobody calls this function. If this is no longer the case, please link rocksdb to RE2 and use re2::FullMatch() instead of
+///   regex_match().
+#if 0
 StatusOr<Project> MakeProject(std::string const& full_name) {
+
   std::regex re("projects/([^/]+)");
   std::smatch matches;
   if (!std::regex_match(full_name, matches, re)) {
@@ -44,6 +48,7 @@ StatusOr<Project> MakeProject(std::string const& full_name) {
   }
   return Project(std::move(matches[1]));
 }
+#endif
 
 GOOGLE_CLOUD_CPP_INLINE_NAMESPACE_END
 }  // namespace cloud
