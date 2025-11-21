@@ -276,6 +276,13 @@ install(
     COMPONENT google_cloud_cpp_development)
 
 # Create and install the CMake configuration files.
+set(GOOGLE_CLOUD_CPP_CONFIG_OPENTELEMETRY_FIND_DEPENDENCY "")
+if ((TARGET gRPC::grpcpp_otel_plugin)
+    AND (TARGET google-cloud-cpp::opentelemetry)
+    AND (TARGET opentelemetry-cpp::metrics))
+    set(GOOGLE_CLOUD_CPP_CONFIG_OPENTELEMETRY_FIND_DEPENDENCY
+        "find_dependency(google_cloud_cpp_opentelemetry)")
+endif ()
 configure_file("config-grpc.cmake.in"
                "google_cloud_cpp_storage_grpc-config.cmake" @ONLY)
 write_basic_package_version_file(
