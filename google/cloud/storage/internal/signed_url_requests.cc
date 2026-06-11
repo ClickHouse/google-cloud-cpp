@@ -14,8 +14,8 @@
 
 #include "google/cloud/storage/internal/signed_url_requests.h"
 #include "google/cloud/internal/absl_str_join_quiet.h"
-#include "google/cloud/internal/curl_handle.h"
 #include "google/cloud/internal/format_time_point.h"
+#include "google/cloud/internal/percent_encode.h"
 #include "google/cloud/internal/make_status.h"
 #include "google/cloud/internal/sha256_hash.h"
 #include "absl/strings/str_split.h"
@@ -32,8 +32,6 @@ namespace cloud {
 namespace storage {
 GOOGLE_CLOUD_CPP_INLINE_NAMESPACE_BEGIN
 namespace internal {
-
-using ::google::cloud::rest_internal::CurlHandle;
 
 void SignUrlRequestCommon::SetOption(AddExtensionHeaderOption const& o) {
   if (!o.has_value()) {
@@ -84,19 +82,18 @@ std::string V2SignUrlRequest::StringToSign() const {
     os << kv.first << ":" << kv.second << "\n";
   }
 
-  CurlHandle curl;
   os << '/' << bucket_name();
   if (!object_name().empty()) {
-    os << '/' << curl.MakeEscapedString(object_name()).get();
+    os << '/' << google::cloud::internal::PercentEncode(object_name());
   }
   char const* sep = "?";
   if (!sub_resource().empty()) {
-    os << sep << curl.MakeEscapedString(sub_resource()).get();
+    os << sep << google::cloud::internal::PercentEncode(sub_resource());
     sep = "&";
   }
   for (auto const& kv : common_request_.query_parameters()) {
-    os << sep << curl.MakeEscapedString(kv.first).get() << "="
-       << curl.MakeEscapedString(kv.second).get();
+    os << sep << google::cloud::internal::PercentEncode(kv.first) << "="
+       << google::cloud::internal::PercentEncode(kv.second);
     sep = "&";
   }
 
@@ -110,15 +107,14 @@ std::ostream& operator<<(std::ostream& os, V2SignUrlRequest const& r) {
 
 namespace {
 std::string QueryStringFromParameters(
-    CurlHandle& curl,
     std::multimap<std::string, std::string> const& parameters) {
   std::string result;
   char const* sep = "";
   for (auto const& qp : parameters) {
     result += sep;
-    result += curl.MakeEscapedString(qp.first).get();
+    result += google::cloud::internal::PercentEncode(qp.first);
     result += '=';
-    result += curl.MakeEscapedString(qp.second).get();
+    result += google::cloud::internal::PercentEncode(qp.second);
     sep = "&";
   }
   return result;
@@ -167,10 +163,9 @@ void V4SignUrlRequest::SetOption(Scheme const& o) {
 
 std::string V4SignUrlRequest::CanonicalQueryString(
     std::string const& client_id) const {
-  CurlHandle curl;
   // Query parameters.
   auto parameters = AllQueryParameters(client_id);
-  return QueryStringFromParameters(curl, parameters);
+  return QueryStringFromParameters(parameters);
 }
 
 std::string V4SignUrlRequest::CanonicalRequest(
@@ -178,21 +173,20 @@ std::string V4SignUrlRequest::CanonicalRequest(
   std::ostringstream os;
 
   os << verb() << "\n";
-  CurlHandle curl;
   if (!SkipBucketInPath()) {
     os << '/' << bucket_name();
   }
   for (auto& part : ObjectNameParts()) {
-    os << '/' << curl.MakeEscapedString(part).get();
+    os << '/' << google::cloud::internal::PercentEncode(part);
   }
   if (!sub_resource().empty()) {
-    os << '?' << curl.MakeEscapedString(sub_resource()).get();
+    os << '?' << google::cloud::internal::PercentEncode(sub_resource());
   }
   os << "\n";
 
   // Query parameters.
   auto parameters = AllQueryParameters(client_id);
-  os << QueryStringFromParameters(curl, parameters) << "\n";
+  os << QueryStringFromParameters(parameters) << "\n";
 
   // Headers
   for (auto&& kv : common_request_.extension_headers()) {
@@ -289,7 +283,6 @@ V4SignUrlRequest::CanonicalQueryParameters(std::string const& client_id) const {
 
 std::multimap<std::string, std::string> V4SignUrlRequest::AllQueryParameters(
     std::string const& client_id) const {
-  CurlHandle curl;
   // Query parameters.
   auto parameters = common_request_.query_parameters();
   auto canonical_parameters = CanonicalQueryParameters(client_id);
