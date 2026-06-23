@@ -17,7 +17,29 @@
 
 #include "google/cloud/options.h"
 #include "google/cloud/version.h"
-#include <curl/curl.h>
+// ClickHouse: libcurl has been removed; the HTTP transport is implemented on
+// Poco (see contrib/google-cloud-cpp-cmake/poco_rest_client.cc). libcurl is
+// neither included nor linked. The declarations below stand in for the few
+// curl symbols still named by the (never instantiated) deleters and type
+// aliases in this header, so that it parses without the libcurl headers.
+using CURL = void;
+using CURLM = void;
+using CURLSH = void;
+using CURLoption = int;
+struct curl_slist {
+  char* data;
+  struct curl_slist* next;
+};
+extern "C" {
+void curl_easy_cleanup(CURL* handle);
+int curl_multi_cleanup(CURLM* multi_handle);
+void curl_free(void* p);
+void curl_slist_free_all(struct curl_slist* list);
+int curl_share_cleanup(CURLSH* share);
+}
+#ifndef LIBCURL_VERSION_NUM
+#define LIBCURL_VERSION_NUM 0x080000
+#endif
 #include <map>
 #include <memory>
 #include <string>
