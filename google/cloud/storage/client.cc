@@ -17,7 +17,7 @@
 #include "google/cloud/storage/internal/connection_factory.h"
 #include "google/cloud/storage/oauth2/service_account_credentials.h"
 #include "google/cloud/internal/absl_str_cat_quiet.h"
-#include "google/cloud/internal/curl_handle.h"
+#include "google/cloud/internal/percent_encode.h"
 #include "google/cloud/internal/curl_options.h"
 #include "google/cloud/internal/filesystem.h"
 #include "google/cloud/internal/make_status.h"
@@ -35,8 +35,6 @@ namespace google {
 namespace cloud {
 namespace storage {
 GOOGLE_CLOUD_CPP_INLINE_NAMESPACE_BEGIN
-
-using ::google::cloud::rest_internal::CurlHandle;
 
 static_assert(std::is_copy_constructible<storage::Client>::value,
               "storage::Client must be constructible");
@@ -387,14 +385,13 @@ StatusOr<std::string> Client::SignUrlV2(
   auto signed_blob = SignBlobImpl(signing_account, request.StringToSign());
   if (!signed_blob) return std::move(signed_blob).status();
 
-  CurlHandle curl;
   auto encoded = internal::Base64Encode(signed_blob->signed_blob);
-  std::string signature = curl.MakeEscapedString(encoded).get();
+  std::string signature = google::cloud::internal::PercentEncode(encoded);
 
   std::ostringstream os;
   os << Endpoint() << '/' << request.bucket_name();
   if (!request.object_name().empty()) {
-    os << '/' << curl.MakeEscapedString(request.object_name()).get();
+    os << '/' << google::cloud::internal::PercentEncode(request.object_name());
   }
   os << "?GoogleAccessId=" << SigningEmail(signing_account)
      << "&Expires=" << request.expiration_time_as_seconds().count()
@@ -420,11 +417,10 @@ StatusOr<std::string> Client::SignUrlV4(internal::V4SignUrlRequest request) {
 
   std::string signature =
       google::cloud::internal::HexEncode(signed_blob->signed_blob);
-  CurlHandle curl;
   std::ostringstream os;
   os << request.HostnameWithBucket();
   for (auto& part : request.ObjectNameParts()) {
-    os << '/' << curl.MakeEscapedString(part).get();
+    os << '/' << google::cloud::internal::PercentEncode(part);
   }
   os << "?" << request.CanonicalQueryString(signing_email)
      << "&X-Goog-Signature=" << signature;
